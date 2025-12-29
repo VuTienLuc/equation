@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, Download, FileText, Sparkles, RefreshCcw, FileCode, Type, Loader2, ChevronDown, Printer, FileInput, BookOpen, Check, Columns, Monitor, ZoomIn, PenTool, Grid, ScanLine, CircleHelp, X, Phone, User, GraduationCap, RotateCcw, Coffee } from 'lucide-react';
+import { Upload, Download, FileText, Sparkles, RefreshCcw, FileCode, Type, Loader2, ChevronDown, Printer, FileInput, BookOpen, Check, Columns, Monitor, ZoomIn, PenTool, Grid, ScanLine, HelpCircle as CircleHelp, X, Phone, User, GraduationCap, RotateCcw, Coffee } from 'lucide-react';
 import mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
 import { parseContent, generateWordCompatibleFile } from './utils/converter';

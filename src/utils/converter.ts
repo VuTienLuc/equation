@@ -223,8 +223,10 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
     </html>
   `;
 
+  // Explicitly cast to Promise<Blob> because html-docx-js-typescript 
+  // returns Promise<Blob | Buffer> which confuses the compiler on some platforms.
   return asBlob(fullHtml, {
       orientation: orientation,
       margins: { top: 720, bottom: 720, left: 720, right: 720 }
-  }) as Promise<Blob>;
+  }) as unknown as Promise<Blob>;
 };
