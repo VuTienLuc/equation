@@ -65,9 +65,8 @@ export const parseContent = (text: string): TextSegment[] => {
 
 /**
  * Generates a Standard .docx file (Office Open XML) using html-docx-js.
- * Supports different styles: Standard, Minimal, Worksheet, Notes, Two-Column, Landscape, Large Print, Draft, Flashcards.
  */
-export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: boolean = false, style: ExportStyle = 'standard'): Promise<Blob> | Blob => {
+export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: boolean = false, style: ExportStyle = 'standard'): Promise<Blob> => {
   let bodyContent = '';
 
   // Helper: Dotted lines for Worksheet
@@ -97,26 +96,20 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
             .replace(/>/g, "&gt;");
             
         // --- COLOR HIGHLIGHTING LOGIC FOR WORD EXPORT ---
-        // 1. Highlight "Câu X:", "Bài X:" (Blue + Bold)
-        // Regex: (Start of line OR newline)(Câu/Bài)(space)(Number/Roman)(dot/colon optional)
         safeText = safeText.replace(
             /(^|\n)(Câu|Bài)\s+([\dIVX]+[.:]?)/gi, 
             '$1<span style="color: #0284c7; font-weight: bold;">$2 $3</span>'
         );
 
-        // 2. Highlight sub-items "a)", "b)" (Darker Blue/Bold)
-        // Regex: (Start of line OR newline)(letter)(close parenthesis)(space)
         safeText = safeText.replace(
             /(^|\n)([a-z]\))(\s)/g,
             '$1<span style="color: #0369a1; font-weight: bold;">$2</span>$3'
         );
 
-        // Convert newlines to breaks
         htmlText = `<span class="text-run">${safeText.replace(/\n/g, "<br/>")}</span>`;
       }
       segmentHtml += htmlText;
 
-      // Worksheet Mode: Add lines logic
       if (style === 'worksheet' && !isRichText) {
           if (segment.content.includes("Câu") || segment.content.includes("Bài") || segment.content.length > 50) {
               segmentHtml += writingLines;
@@ -136,7 +129,6 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
             let cleanMath = mathMatch[0];
             cleanMath = cleanMath.replace(/<annotation encoding="application\/x-tex">[\s\S]*?<\/annotation>/, '');
             
-            // For docx generation, we rely on Word's ability to interpret MathML embedded in the HTML chunk.
             if (segment.displayMode) {
                 segmentHtml += `<p class="equation" style="text-align: center; margin: 12pt 0;">${cleanMath}</p>`;
                 if (style === 'worksheet') {
@@ -153,22 +145,17 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
       }
     }
 
-    // Accumulate content
     if (isFlashcard && segment.type === 'text' && segmentHtml.trim().length > 0) {
-        // In flashcard mode, wrap significant text chunks in a card div
         bodyContent += `<div class="flashcard">${segmentHtml}</div>`;
     } else if (isFlashcard && segment.type === 'math' && segment.displayMode) {
-        // Wrap display math in its own card
         bodyContent += `<div class="flashcard">${segmentHtml}</div>`;
     } else {
         bodyContent += segmentHtml;
     }
   });
 
-  // --- Dynamic CSS based on Style ---
-  
-  let pageMargin = '1in'; // Standard 1 inch
-  let orientation = 'portrait';
+  let pageMargin = '1in';
+  let orientation: 'portrait' | 'landscape' = 'portrait';
   let fontSize = '12pt';
   let fontFamily = "'Times New Roman', serif";
   let lineHeight = '1.5';
@@ -176,9 +163,7 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
 
   switch (style) {
       case 'notes':
-          // Cornell notes style simulation via CSS not fully supported by simple HTML-DOCX, 
-          // but we can adjust margins.
-          pageMargin = '1in 1in 1in 2.5in'; // Top Right Bottom Left
+          pageMargin = '1in 1in 1in 2.5in';
           break;
       case 'minimal':
           pageMargin = '0.5in';
@@ -186,44 +171,27 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
           break;
       case 'two-column':
           pageMargin = '0.5in';
-          // CSS columns don't always translate perfectly to Docx via HTML, 
-          // but we include the instruction.
-          extraCss = `
-            .Section1 { 
-                column-count: 2; 
-                column-gap: 36pt; 
-            }
-          `;
+          extraCss = `.Section1 { column-count: 2; column-gap: 36pt; }`;
           break;
       case 'landscape':
           orientation = 'landscape';
           break;
       case 'large-print':
           fontSize = '16pt';
-          fontFamily = "Arial, sans-serif"; // Easier to read
+          fontFamily = "Arial, sans-serif";
           lineHeight = '1.6';
           break;
       case 'draft':
-          lineHeight = '2.0'; // Double spacing
-          pageMargin = '1.5in'; // Wide margins for corrections
+          lineHeight = '2.0';
+          pageMargin = '1.5in';
           break;
       case 'flashcards':
-          extraCss = `
-            .flashcard {
-                border: 2px solid #000;
-                padding: 15pt;
-                margin: 15pt 0;
-                page-break-inside: avoid;
-                background-color: #ffffff;
-            }
-          `;
+          extraCss = `.flashcard { border: 2px solid #000; padding: 15pt; margin: 15pt 0; page-break-inside: avoid; background-color: #ffffff; }`;
           break;
   }
 
-  // Colors
   const isPlain = style === 'minimal' || style === 'draft';
   const headingColor1 = isPlain ? '#000000' : '#2E74B5';
-  const headingColor2 = isPlain ? '#000000' : '#1F4D78';
   const tableHeaderBg = isPlain ? '#ffffff' : '#f2f2f2';
 
   const fullHtml = `
@@ -231,58 +199,22 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Export</title>
         <style>
-            @page {
-                margin: ${pageMargin};
-                size: ${orientation};
-            }
-            
-            body { 
-                font-family: ${fontFamily}; 
-                font-size: ${fontSize}; 
-                line-height: ${lineHeight}; 
-                color: #000000;
-            }
-            
-            /* Heading Styles */
+            @page { margin: ${pageMargin}; size: ${orientation}; }
+            body { font-family: ${fontFamily}; font-size: ${fontSize}; line-height: ${lineHeight}; color: #000000; }
             h1 { font-size: 1.4em; color: ${headingColor1}; font-weight: bold; margin-top: 18pt; margin-bottom: 6pt; }
-            h2 { font-size: 1.2em; color: ${headingColor1}; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
-            h3 { font-size: 1.1em; color: ${headingColor2}; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
-            
-            /* Text Runs */
             .text-run { white-space: pre-wrap; }
-            
-            /* Equations */
             p.equation { margin: 12pt 0; text-align: center; }
-            
-            /* Tables */
-            table { 
-                border-collapse: collapse; 
-                width: 100%; 
-                margin: 12pt 0; 
-                border: 1px solid black;
-            }
-            td, th { 
-                border: 1px solid black; 
-                padding: 6px 8px; 
-                vertical-align: top;
-            }
-            th {
-                background-color: ${tableHeaderBg};
-                font-weight: bold;
-            }
-
-            /* Custom Style CSS */
+            table { border-collapse: collapse; width: 100%; margin: 12pt 0; border: 1px solid black; }
+            td, th { border: 1px solid black; padding: 6px 8px; vertical-align: top; }
+            th { background-color: ${tableHeaderBg}; font-weight: bold; }
             ${extraCss}
         </style>
     </head>
     <body>
         <div class="Section1">
             ${bodyContent}
-            
-            <br/>
-            <hr/>
+            <br/><hr/>
             <p style="text-align: center; color: #2E74B5; font-size: 10pt; font-weight: bold; margin-top: 20pt;">
                 Thầy Vũ Tiến Lực - Trường THPT Nguyễn Hữu Cảnh
             </p>
@@ -291,10 +223,8 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
     </html>
   `;
 
-  // Generate standard .docx blob using html-docx-js-typescript
-  // We cast the return value to Promise<Blob> to satisfy TypeScript's strict browser types
   return asBlob(fullHtml, {
-      orientation: orientation as 'portrait' | 'landscape',
+      orientation: orientation,
       margins: { top: 720, bottom: 720, left: 720, right: 720 }
   }) as Promise<Blob>;
 };
