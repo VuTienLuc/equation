@@ -82,7 +82,7 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
   // Start wrapping for Flashcards mode
   const isFlashcard = style === 'flashcards';
 
-  segments.forEach((segment, index) => {
+  segments.forEach((segment) => {
     let segmentHtml = '';
 
     if (segment.type === 'text') {
@@ -292,9 +292,9 @@ export const generateWordCompatibleFile = (segments: TextSegment[], isRichText: 
   `;
 
   // Generate standard .docx blob using html-docx-js-typescript
-  // This wraps the HTML in a valid OpenXML Zip container.
+  // We cast the return value to Promise<Blob> to satisfy TypeScript's strict browser types
   return asBlob(fullHtml, {
       orientation: orientation as 'portrait' | 'landscape',
-      margins: { top: 720, bottom: 720, left: 720, right: 720 } // Twips (approximate)
-  });
+      margins: { top: 720, bottom: 720, left: 720, right: 720 }
+  }) as Promise<Blob>;
 };
